@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Đăng nhập</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles/base.css">
+</head>
+<body>
+  <div id="app-header"></div>
+  <!-- Toast lỗi đăng nhập -->
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:1080">
+  <div id="loginToast" class="toast align-items-center text-white bg-danger border-0" role="alert"
+       aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+    <div class="d-flex">
+      <div class="toast-body">Sai email hoặc mật khẩu.</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+              aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+
+  <main class="container my-4" style="max-width:560px">
+    <div class="card p-3 p-md-4">
+      <h3 class="mb-3">Đăng nhập</h3>
+      <form id="loginForm" novalidate>
+        <div class="mb-2"><label class="form-label">Email</label><input id="email" type="email" class="form-control" required></div>
+        <div class="mb-2"><label class="form-label">Mật khẩu</label><input id="password" type="password" class="form-control" required></div>
+        <div class="d-flex gap-2">
+          <button class="btn primary" type="submit">Đăng nhập</button>
+          <a class="btn outline" href="register.html">Tạo tài khoản</a>
+        </div>
+        <div id="msg" class="mt-2 text-danger small"></div>
+      </form>
+    </div>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+  <script>
+     const toastEl  = document.getElementById('loginToast');
+  const loginToast = bootstrap.Toast.getOrCreateInstance(toastEl);
+
+  const form = document.getElementById('loginForm');
+  const msg  = document.getElementById('msg'); // nếu muốn hiện thêm text dưới form
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // Ẩn/clear thông báo inline (nếu dùng)
+    if (msg) { msg.textContent = ''; msg.classList.remove('alert','alert-danger'); }
+
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('password').value;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      // PHẢI await để bắt đúng lỗi từ auth.js
+      await window.login(email, pass);
+
+      // Đúng -> redirect
+      const next = new URLSearchParams(location.search).get('next') || 'index.html';
+      location.href = next;
+    } catch (err) {
+      // Sai -> KHÔNG redirect, chỉ hiện toast
+      const text = err?.message || 'Sai email hoặc mật khẩu.';
+      toastEl.querySelector('.toast-body').textContent = text;
+      loginToast.show();
+
+      // Nếu thích hiện thêm dưới form:
+      // msg.textContent = text;
+      // msg.classList.add('alert','alert-danger');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+  </script>
+</body>
+</html>

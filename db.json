@@ -1,0 +1,56 @@
+{
+  "categories": [
+    {
+      "id": "1",
+      "name": "Điện thoại",
+      "parent_id": null
+    },
+    {
+      "id": "2",
+      "name": "Laptop",
+      "parent_id": null
+    },
+    {
+      "id": "3",
+      "name": "abc",
+      "parent_id": null
+    }
+  ],
+  "products": [
+    {
+      "id": "e499",
+      "name": "ghjk",
+      "sku": "1",
+      "cate_id": 5,
+      "detail": "45678",
+      "price": 345678,
+      "quantity": 345678,
+      "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbahAJV3Zgud0S0MJZ_YwEJrrFUMxLAUc2SQ&s"
+    }
+  ],
+  "product_variants": [],
+  "users": [
+    {
+      "id": "1",
+      "name": "Admin",
+      "email": "admin@susan.shop",
+      "phone": "0123456789",
+      "address": "HN",
+      "password": "admin",
+      "role": "admin",
+      "avatar": ""
+    },
+    {
+      "id": "2",
+      "name": "Khách hàng",
+      "email": "user@susan.shop",
+      "phone": "0987654321",
+      "address": "HCM",
+      "password": "123456",
+      "role": "user",
+      "avatar": ""
+    }
+  ],
+  "orders": [],
+  "order_details": []
+}

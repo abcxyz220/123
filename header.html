@@ -1,0 +1,65 @@
+<!-- header.html (đã sửa link tuyệt đối gốc) -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
+  <div class="container">
+    <!-- Logo về intro -->
+    <a class="navbar-brand fw-bold" href="/intro.html" aria-label="Intro - Susan Shop">Susan Shop</a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+      aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainNavbar">
+      <div class="d-lg-flex align-items-center gap-3 mx-lg-auto my-2 my-lg-0">
+        <ul class="navbar-nav align-items-lg-center">
+          <li class="nav-item"><a class="nav-link" href="index.html">Cửa hàng</a></li>
+          <li class="nav-item"><a class="nav-link" href="product.html">Sản phẩm</a></li>
+        </ul>
+
+        <!-- Search luôn trả về /index.html -->
+        <form id="header-search-form" class="d-flex" role="search" action="/index.html" method="get">
+          <input id="header-search-input" class="form-control me-2" type="search" placeholder="Tìm sản phẩm..." name="q"
+            aria-label="Search">
+          <button class="btn btn-outline-primary" type="submit">
+            <i class="bi bi-search" aria-hidden="true"></i><span class="visually-hidden">Tìm</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="d-flex align-items-center gap-2 ms-lg-3">
+        <button class="btn btn-light position-relative" id="btn-noti" title="Thông báo" type="button">
+          <i class="bi bi-bell"></i>
+          <span id="noti-count"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+        </button>
+
+        <a class="btn btn-light position-relative" href="/cart.html" title="Giỏ hàng">
+          <i class="bi bi-cart"></i>
+          <span id="cart-count"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+        </a>
+
+        <div id="authArea">
+          <a class="btn btn-light" href="/login.html" title="Đăng nhập / Đăng ký">
+            <i class="bi bi-person-circle"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<script>
+  // Tô đậm menu hiện tại (bỏ /admin/ khi so sánh)
+  (function () {
+    const cur = location.pathname.replace(/^\/admin\//, '/');
+    const map = { '/index.html': true, '/product.html': true };
+    document.querySelectorAll('.navbar .nav-link').forEach(a => {
+      let href = a.getAttribute('href') || '';
+      if (!href.startsWith('/')) href = '/' + href;
+      if (map[href] && cur.endsWith(href)) {
+        a.classList.add('active'); a.setAttribute('aria-current', 'page');
+      }
+    });
+  })();
+</script>

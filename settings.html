@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cài đặt tài khoản – Susan Shop</title>
+
+  <!-- Bootstrap + Icons (để giữ style nhất quán header/footer) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles/base.css"/>
+  <style>
+    .avatar-xl{ width:120px; height:120px; border-radius:50%; object-fit:cover; border:1px solid var(--border); background:#fff; }
+    .pill-role{ font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #dbeafe; background:#eef6ff; color:#0b3b8a; }
+    .card-soft{ border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); }
+  </style>
+</head>
+<body>
+
+  <!-- Header/Footer sẽ được chèn động -->
+  <div id="app-header"></div>
+
+  <main class="container my-4">
+    <h2 class="mb-3">Cài đặt tài khoản</h2>
+
+    <div class="row g-3">
+      <!-- Cột trái: Avatar -->
+      <div class="col-lg-4">
+        <div class="card card-soft p-3">
+          <div class="d-flex flex-column align-items-center text-center">
+            <img id="avatarPreview" class="avatar-xl mb-2" src="images/placeholder.svg" alt="Avatar">
+            <div id="rolePill" class="pill-role mb-2">User</div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Ảnh đại diện (URL)</label>
+            <input id="avatarUrl" type="url" class="form-control" placeholder="https://...">
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Hoặc chọn ảnh từ máy</label>
+            <input id="avatarFile" type="file" accept="image/*" class="form-control">
+            <div class="form-text">Ưu tiên file (sẽ lưu dạng Base64).</div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button id="btnClearAvatar" class="btn btn-outline-danger flex-fill"><i class="bi bi-x-circle"></i> Xóa ảnh</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cột phải: Thông tin -->
+      <div class="col-lg-8">
+        <div class="card card-soft p-3">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Họ tên</label>
+              <input id="name" class="form-control" placeholder="VD: Nguyễn Văn A">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input id="email" type="email" class="form-control" placeholder="abc@example.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Số điện thoại</label>
+              <input id="phone" class="form-control" placeholder="VD: 09xx...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Địa chỉ</label>
+              <input id="address" class="form-control" placeholder="Số nhà, đường, quận/huyện, tỉnh/thành...">
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button id="btnSave" class="btn primary"><i class="bi bi-save"></i> Lưu thay đổi</button>
+            <a href="index.html" class="btn btn-outline-secondary">Hủy</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api/users.js"></script>
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+
+  <!-- Logic thuần JS cho trang Settings -->
+  <script>
+    // Helpers
+    function currentUserSafe(){
+      try { return (typeof currentUser==='function') ? currentUser() : JSON.parse(localStorage.getItem('ss_user')||'null'); }
+      catch { return null; }
+    }
+    function setCurrentUser(u){
+      localStorage.setItem('ss_user', JSON.stringify(u));
+    }
+    function validateEmail(email){
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    function readFileAsDataURL(file){
+      return new Promise((res, rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
+    }
+    async function updateUserStore(userId, payload){
+      // Nếu có API Users -> dùng, else tự thao tác LocalStorage
+      if (window.Users && typeof Users.update==='function'){
+        return Users.update(userId, payload);
+      }
+      // fallback: tìm trong 'users' hoặc 'ss_users'
+      const keys = ['users', 'ss_users'];
+      let storeKey = null, list = null;
+      for(const k of keys){
+        try{
+          const raw = localStorage.getItem(k);
+          if(raw){ list = JSON.parse(raw); storeKey = k; break; }
+        }catch{}
+      }
+      if(!Array.isArray(list)){ list = []; storeKey = 'users'; }
+      const idx = list.findIndex(u => String(u.id)===String(userId) || (u.email && u.email===payload.email));
+      if(idx>-1){
+        list[idx] = {...list[idx], ...payload};
+      }else{
+        // nếu chưa có, thêm mới (giữ id)
+        list.push({ id: userId, role:'user', ...payload });
+      }
+      localStorage.setItem(storeKey, JSON.stringify(list));
+    }
+
+    // Main
+    (async function initSettings(){
+      // Bắt buộc đăng nhập
+      const u = currentUserSafe();
+      if(!u){ alert('Vui lòng đăng nhập để chỉnh sửa thông tin.'); location.href='login.html'; return; }
+
+      // Refs
+      const el = {
+        avatarPreview: document.getElementById('avatarPreview'),
+        avatarUrl: document.getElementById('avatarUrl'),
+        avatarFile: document.getElementById('avatarFile'),
+        btnClearAvatar: document.getElementById('btnClearAvatar'),
+        name: document.getElementById('name'),
+        email: document.getElementById('email'),
+        phone: document.getElementById('phone'),
+        address: document.getElementById('address'),
+        rolePill: document.getElementById('rolePill'),
+        btnSave: document.getElementById('btnSave')
+      };
+
+      // Prefill
+      el.avatarPreview.src = u.avatar || u.image || 'images/placeholder.svg';
+      el.avatarUrl.value = u.avatar || u.image || '';
+      el.name.value = u.name || '';
+      el.email.value = u.email || '';
+      el.phone.value = u.phone || '';
+      el.address.value = u.address || '';
+      el.rolePill.textContent = (u.role==='admin') ? 'Admin' : 'User';
+
+      // Live preview URL
+      el.avatarUrl.addEventListener('input', ()=>{
+        el.avatarPreview.src = el.avatarUrl.value || 'images/placeholder.svg';
+      });
+      // File -> base64 + preview
+      el.avatarFile.addEventListener('change', async ()=>{
+        const f = el.avatarFile.files[0];
+        if(!f) return;
+        try{
+          const dataUrl = await readFileAsDataURL(f);
+          el.avatarPreview.src = dataUrl;
+          el.avatarUrl.value = ''; // ưu tiên file
+          el.avatarFile.dataset.base64 = dataUrl; // tạm giữ để khi save
+        }catch{ alert('Không đọc được file ảnh.'); }
+      });
+      // Clear avatar
+      el.btnClearAvatar.addEventListener('click', ()=>{
+        el.avatarFile.value = '';
+        el.avatarFile.dataset.base64 = '';
+        el.avatarUrl.value = '';
+        el.avatarPreview.src = 'images/placeholder.svg';
+      });
+
+      // Save
+      el.btnSave.addEventListener('click', async ()=>{
+        const payload = {
+          name: el.name.value.trim(),
+          email: el.email.value.trim(),
+          phone: el.phone.value.trim(),
+          address: el.address.value.trim(),
+        };
+        // Avatar: ưu tiên file (base64) -> nếu không có thì dùng URL
+        payload.avatar = el.avatarFile.dataset.base64 || el.avatarUrl.value.trim() || '';
+
+        if(!payload.name){ alert('Vui lòng nhập họ tên.'); return; }
+        if(!payload.email || !validateEmail(payload.email)){ alert('Email không hợp lệ.'); return; }
+
+        try{
+          await updateUserStore(u.id, payload);
+
+          // Cập nhật phiên hiện tại
+          const updated = { ...u, ...payload };
+          setCurrentUser(updated);
+
+          // Thông báo + reload để header cập nhật tên/avatar
+          alert('Đã lưu thay đổi!');
+          location.reload();
+        }catch(err){
+          console.error(err);
+          alert('Không thể lưu. Vui lòng thử lại.');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

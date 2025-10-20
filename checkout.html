@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Thanh toán – Susan Shop</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- CSS chung -->
+  <link rel="stylesheet" href="styles/base.css"/>
+
+  <style>
+    :root{ --ok:#16a34a; --muted:#64748b; }
+    main.container{ max-width: var(--max, 1080px); }
+    .stage{ display:flex; gap:8px; align-items:center; justify-content:center; color:var(--muted); font-weight:600; margin:8px 0 20px; }
+    .stage .dot{ width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#e5f7ea;color:#15803d;font-size:14px;font-weight:700; }
+    .panel{ border:1px solid var(--border,#e5e7eb); border-radius:16px; background:#fff; box-shadow:0 10px 30px rgba(2,6,23,.06); }
+    .panel .title{ font-weight:700; margin:0 0 8px; }
+    .totals .rowline{ display:flex; justify-content:space-between; margin:6px 0; }
+    .totals .grand{ font-size:20px; font-weight:800; }
+    .login-badge{ background:#f8fafc; border:1px dashed var(--border,#e5e7eb); border-radius:999px; padding:6px 12px; display:inline-flex; gap:8px; align-items:center; }
+    .muted{ color:var(--muted); }
+    .btn.primary{ background:#16a34a; border:none; color:#fff; }
+    .btn.primary:hover{ background:#15803d; color:#fff; }
+    .btn.outline{ border:1px solid var(--border,#e5e7eb); background:#fff; }
+    .empty{ padding:20px; text-align:center; border-radius:12px; background:#f8fafc; border:1px solid var(--border,#e5e7eb); }
+    .thumb{ width:60px;height:46px;object-fit:cover; border-radius:8px; border:1px solid var(--border,#e5e7eb); background:#fff; }
+  </style>
+</head>
+<body>
+
+  <!-- Header động -->
+  <div id="app-header"></div>
+
+  <main class="container my-4 my-md-5">
+    <div class="stage">
+      <span class="dot">1</span> Giỏ hàng
+      <span class="mx-2">›</span>
+      <span class="dot">2</span> Thanh toán
+      <span class="mx-2">›</span>
+      <span class="dot">3</span> Hoàn tất
+    </div>
+
+    <div class="row g-3">
+      <!-- Tóm tắt đơn -->
+      <div class="col-12 col-lg-8">
+        <div class="p-3 p-md-4 panel">
+          <h4 class="title">Tóm tắt đơn hàng</h4>
+          <div id="summary"></div>
+        </div>
+      </div>
+
+      <!-- Thông tin người mua + Tổng tiền -->
+      <div class="col-12 col-lg-4">
+        <div class="p-3 p-md-4 panel h-100">
+          <h5 class="title">Thanh toán</h5>
+
+          <div id="who" class="mb-2"></div>
+          <p class="muted small mb-3">Bạn sẽ thanh toán khi nhận hàng (COD). Hóa đơn được lưu trong lịch sử đơn hàng.</p>
+
+          <div class="totals border-top pt-3 mt-2">
+            <div class="rowline"><span>Tạm tính</span><strong id="subtotal">0 ₫</strong></div>
+            <div class="rowline"><span>Phí vận chuyển</span><span class="muted">Miễn phí</span></div>
+            <div class="rowline grand border-top pt-2 mt-1"><span>Tổng</span><span id="grand">0 ₫</span></div>
+          </div>
+
+          <div class="d-grid gap-2 mt-3">
+            <button class="btn primary" id="payBtn">Đặt hàng</button>
+            <a class="btn outline" href="cart.html">⟵ Quay lại giỏ hàng</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer động -->
+ <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/api/_config.js"></script>
+  <script src="js/api/orders.js"></script>
+  <script src="js/auth.js"></script>
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+
+  <script>
+    // ===== Helpers =====
+    function money(n){ try{ return formatVND(Number(n||0)); }catch{ return (Number(n||0)).toLocaleString('vi-VN') + ' ₫'; } }
+
+    const CART_KEYS = ['ss_cart','cart','susan_cart_v1'];
+    function readCart(){
+      try{ if(typeof getCart==='function') return getCart(); }catch{}
+      for(const k of CART_KEYS){
+        try{
+          const raw = localStorage.getItem(k);
+          if(raw){ const c = JSON.parse(raw); return Array.isArray(c)?{items:c}:c; }
+        }catch{}
+      }
+      return {items:[]};
+    }
+    function writeCart(cart){
+      const norm = Array.isArray(cart)?{items:cart}:cart;
+      for(const k of CART_KEYS){ localStorage.setItem(k, JSON.stringify(norm)); }
+      try{ if(typeof setCart==='function') setCart(norm); }catch{}
+      try{ if(typeof updateCartCountBubble==='function') updateCartCountBubble(); }catch{}
+    }
+
+    function renderUserBadge(){
+      const box = document.getElementById('who');
+      const me = (typeof currentUser==='function') ? currentUser() : null;
+      if(me){
+        box.innerHTML = `
+          <span class="login-badge">
+            <i class="bi bi-person-circle"></i>
+            <span><strong>${me.name||'Khách hàng'}</strong> · ${me.email||''}</span>
+          </span>`;
+      }else{
+        box.innerHTML = `
+          <div class="alert alert-warning py-2 px-3 mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-exclamation-triangle"></i>
+              <div>Bạn chưa đăng nhập. Vui lòng <a href="login.html?next=checkout.html">đăng nhập</a> trước khi đặt hàng.</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    async function cleanCartOrphans(){
+      const cart = readCart();
+      const keep = [];
+      for(const it of (cart.items||[])){
+        const v = await Products.getVariant(+it.variant_id);
+        if(v) keep.push(it);
+      }
+      if(keep.length !== (cart.items||[]).length){
+        writeCart({items: keep});
+      }
+    }
+
+    async function renderSummary(){
+      const wrap = document.getElementById('summary');
+      const btn  = document.getElementById('payBtn');
+
+      await cleanCartOrphans();
+
+      const cart  = readCart();
+      const items = cart.items || [];
+
+      try{ if(typeof updateCartCountBubble==='function') updateCartCountBubble(); }catch{}
+
+      if(!items.length){
+        wrap.innerHTML = `<div class="empty">🛒 Giỏ hàng trống. <a href="index.html">Tiếp tục mua sắm</a></div>`;
+        btn.disabled = true;
+        document.getElementById('subtotal').textContent = '0 ₫';
+        document.getElementById('grand').textContent    = '0 ₫';
+        return;
+      }
+
+      let subtotal = 0, rows = '';
+
+      for(const it of items){
+        const v = await Products.getVariant(+it.variant_id);
+        if(!v) continue;
+        const p = await Products.get(+v.product_id);
+        const unit = +v.price || 0;
+        const qty  = +it.quantity || 0;
+        const line = unit * qty;
+        subtotal += line;
+
+        rows += `
+          <tr>
+            <td style="width:70px"><img class="thumb" src="${p?.image || 'images/placeholder.svg'}" alt=""></td>
+            <td>
+              <div><strong>${p?.name||'Sản phẩm'}</strong></div>
+              <div class="muted small">${v?.variant_name||'Mặc định'}</div>
+            </td>
+            <td class="text-end">${money(unit)}</td>
+            <td class="text-center" style="width:70px">${qty}</td>
+            <td class="text-end">${money(line)}</td>
+          </tr>`;
+      }
+
+      wrap.innerHTML = `
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th style="width:70px">Ảnh</th>
+                <th>Sản phẩm</th>
+                <th class="text-end">Đơn giá</th>
+                <th class="text-center" style="width:70px">SL</th>
+                <th class="text-end">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+
+      document.getElementById('subtotal').textContent = money(subtotal);
+      document.getElementById('grand').textContent    = money(subtotal);
+    }
+
+    document.getElementById('payBtn').addEventListener('click', async () => {
+      const me = (typeof currentUser==='function') ? currentUser() : null;
+      if(!me){
+        alert('Vui lòng đăng nhập trước khi đặt hàng.');
+        location.href = 'login.html?next=checkout.html';
+        return;
+      }
+      if(!window.Orders || !Orders.place){
+        alert('Orders is not defined.\nKiểm tra file js/api/orders.js (đường dẫn/thứ tự script).');
+        return;
+      }
+      try{
+        const oid = await Orders.place();
+        if(!oid) return;
+        location.href = 'thankyou.html?order_id=' + oid;
+      }catch(e){
+        alert(e?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại!');
+      }
+    });
+
+    renderUserBadge();
+    renderSummary();
+  </script>
+</body>
+</html>

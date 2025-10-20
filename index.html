@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Susan Shop</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- CSS của bạn -->
+  <link rel="stylesheet" href="styles/base.css"/>
+</head>
+<body>
+  <!-- Header động -->
+  <div id="app-header"></div>
+
+  <main class="container my-3">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap" style="max-width:var(--max);margin:auto;padding:18px;display:grid;grid-template-columns:1.1fr .9fr;gap:16px">
+        <div class="content">
+          <span class="badge">Deal tháng này</span>
+          <h1>Susan Shop – Hàng công nghệ chính hãng</h1>
+          <p>Chọn đúng máy, đúng giá. Lọc theo danh mục & khoảng giá ngay bên dưới.</p>
+          <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn primary" href="#productGrid">Mua ngay</a>
+            <a class="btn outline" href="cart.html">Xem giỏ hàng</a>
+          </div>
+        </div>
+        <div><img src="images/hero.svg" alt="Banner" style="max-width:100%"/></div>
+      </div>
+    </section>
+
+    <!-- SPLIT: Sidebar + Hot -->
+    <section class="home-split" style="display:grid;grid-template-columns:280px 1fr;gap:16px">
+      <!-- Sidebar -->
+      <!-- Sidebar -->
+<aside class="sidebar card p-3">
+  <h3 style="margin:0 0 8px">Danh mục</h3>
+  <ul class="cate-list" style="list-style:none;padding:0;margin:0;display:grid;gap:10px">
+    <!-- Điện thoại -->
+    <li>
+      <h4 class="h6">Điện thoại</h4>
+      <ul class="list-unstyled ms-2">
+        <li><a href="#" data-cate="1">Tất cả điện thoại</a></li>
+        <li><a href="#" data-cate="1" data-q="iphone">iPhone</a></li>
+        <li><a href="#" data-cate="1" data-q="xiaomi">Xiaomi</a></li>
+        <li><a href="#" data-cate="1" data-q="oppo">OPPO</a></li>
+        <li><a href="#" data-cate="1" data-q="huawei">Huawei</a></li>
+        <li><a href="#" data-cate="1" data-q="samsung">Samsung</a></li>
+      </ul>
+    </li>
+
+    <!-- Laptop -->
+    <li>
+      <h4 class="h6">Laptop</h4>
+      <ul class="list-unstyled ms-2">
+        <li><a href="#" data-cate="2">Tất cả laptop</a></li>
+        <li><a href="#" data-cate="2" data-q="macbook">MacBook</a></li>
+        <li><a href="#" data-cate="2" data-q="dell">Dell</a></li>
+        <li><a href="#" data-cate="2" data-q="asus">ASUS</a></li>
+        <li><a href="#" data-cate="2" data-q="acer">Acer</a></li>
+        <li><a href="#" data-cate="2" data-q="msi">MSI</a></li>
+      </ul>
+    </li>
+
+    <!-- Linh kiện -->
+    <li>
+      <h4 class="h6">Linh kiện</h4>
+      <ul class="list-unstyled ms-2">
+        <li><a href="#" data-cate="3">Tất cả linh kiện</a></li>
+        <li><a href="#" data-cate="3" data-q="ram">RAM</a></li>
+        <li><a href="#" data-cate="3" data-q="ssd">SSD</a></li>
+        <li><a href="#" data-cate="3" data-q="vga">Card màn hình</a></li>
+        <li><a href="#" data-cate="3" data-q="psu nguồn">Nguồn</a></li>
+        <li><a href="#" data-cate="3" data-q="mainboard">Mainboard</a></li>
+      </ul>
+    </li>
+  </ul>
+</aside>
+
+
+      <!-- Hot -->
+      <section class="hot-section">
+        <h3 style="margin:8px 0 10px">🔥 Sản phẩm hot / giảm giá</h3>
+        <div class="grid" id="hotGrid"></div>
+      </section>
+    </section>
+
+    <!-- Filters -->
+    <div class="filters card p-3 my-3" style="display:grid;grid-template-columns:1fr 220px 140px 140px auto;gap:10px">
+      <input type="text" id="searchName" class="form-control" placeholder="Tìm theo tên sản phẩm">
+      <select id="cateSelect" class="form-select">
+        <option value="">Tất cả danh mục</option>
+      </select>
+      <input type="number" id="minPrice" class="form-control" placeholder="Giá từ">
+      <input type="number" id="maxPrice" class="form-control" placeholder="Đến">
+      <button class="btn btn-outline-primary" id="filterBtn"><i class="bi bi-funnel"></i> Lọc</button>
+    </div>
+
+    <!-- Product grid -->
+    <div class="grid" id="productGrid"></div>
+  </main>
+
+  <button id="backTop" aria-label="Lên đầu trang">▲</button>
+
+  <!-- Footer động -->
+  <div id="app-footer"></div>
+
+  <!-- Libs -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Core utils/cart -->
+  <script src="js/utils.js"></script>
+  <script src="js/cart.js"></script>
+
+  <!-- API config + API modules (THỨ TỰ QUAN TRỌNG: _config.js trước) -->
+  <script src="js/api/_config.js"></script>
+  <script src="js/api/categories.js"></script>
+  <script src="js/api/products.js"></script>
+  <script src="js/api/users.js"></script>
+  <script src="js/api/orders.js"></script>
+
+  <!-- Auth + Header/Footer động -->
+  <script src="js/auth.js"></script>
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+
+  <!-- Page logic -->
+  <script>
+    const money = (n)=> (typeof formatVND==='function') ? formatVND(Number(n||0)) : (Number(n||0)).toLocaleString('vi-VN')+' ₫';
+    const esc = (s='') => s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+
+    async function renderCategories(){
+      const cates = await Categories.all();
+      const sel = document.getElementById('cateSelect');
+      cates.forEach(c=>{
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = c.name;
+        sel.appendChild(o);
+      });
+    }
+
+    function productCard(p){
+      const min = Number(p.minPrice ?? p.price ?? 0);
+      const max = Number(p.maxPrice ?? p.price ?? 0);
+      const priceHtml = (min && max && min !== max) ? `${money(min)} – ${money(max)}` : money(max || min || 0);
+      return `
+      <div class="product-card">
+        <a class="thumb-wrap" href="product.html?id=${p.id}" aria-label="Xem chi tiết ${esc(p.name)}">
+          <img class="thumb" src="${esc(p.image || 'images/placeholder.svg')}" alt="${esc(p.name)}"
+               onerror="this.onerror=null;this.src='images/placeholder.png'">
+        </a>
+        <div class="actions">
+          <button class="btn-xs btn-add" data-pid="${p.id}">+ Giỏ</button>
+          <button class="btn-xs btn-buy" data-pid="${p.id}">Mua ngay</button>
+        </div>
+        <div class="p">
+          <div class="title-row">
+            <strong>${esc(p.name)}</strong>
+            <span class="badge">#${p.cate_id}</span>
+          </div>
+          <div class="price">${priceHtml}</div>
+        </div>
+      </div>`;
+    }
+
+    function renderEmpty(keyword, hasFilter){
+      document.getElementById('productGrid').innerHTML = `
+        <div class="card" style="grid-column:1/-1;text-align:center;padding:28px">
+          <div style="font-weight:600;margin-bottom:6px">
+            🔎 Không tìm thấy sản phẩm${keyword ? ` cho từ khóa “${esc(keyword)}”` : ''}.
+          </div>
+          <div class="muted">${hasFilter ? 'Thử đổi từ khóa hoặc bỏ bớt bộ lọc.' : 'Hãy thử từ khóa khác.'}</div>
+        </div>`;
+    }
+
+    async function loadProducts({ cateId=null } = {}){
+      const nameQ = document.getElementById('searchName').value.trim().toLowerCase();
+      const minP  = parseInt(document.getElementById('minPrice').value || 0, 10);
+      const maxP  = parseInt(document.getElementById('maxPrice').value || 0, 10);
+      if (cateId === null) cateId = document.getElementById('cateSelect').value || null;
+
+      let list = await Products.filter({ cateId, minP, maxP });
+      if (nameQ){
+        list = list.filter(p =>
+          (p.name||'').toLowerCase().includes(nameQ) ||
+          (p.detail||'').toLowerCase().includes(nameQ)
+        );
+      }
+
+      const grid = document.getElementById('productGrid');
+      if (!list.length){
+        const hasFilter = !!(nameQ || cateId || minP || maxP);
+        renderEmpty(nameQ, hasFilter);
+        return;
+      }
+      grid.innerHTML = list.map(productCard).join('');
+    }
+
+    async function renderHot(){
+      const all = await Products.all();
+      const picks = all.sort((a,b)=> (b.maxPrice||0) - (a.maxPrice||0)).slice(0,6);
+      document.getElementById('hotGrid').innerHTML =
+        picks.length ? picks.map(productCard).join('') : '<div class="muted">Đang cập nhật…</div>';
+    }
+
+    document.addEventListener('click', (e)=>{
+      const a = e.target.closest('.cate-list a'); if(!a) return;
+      e.preventDefault();
+      const cateId = a.dataset.cate || '';
+      const q = a.dataset.q || '';
+      document.getElementById('cateSelect').value = cateId;
+      document.getElementById('searchName').value = q;
+      loadProducts({ cateId });
+      document.getElementById('productGrid').scrollIntoView({ behavior:'smooth' });
+    });
+
+    document.getElementById('filterBtn').addEventListener('click', ()=> loadProducts());
+    document.getElementById('searchName').addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadProducts(); });
+
+    const backTop = document.getElementById('backTop');
+    window.addEventListener('scroll', ()=> backTop.classList.toggle('show', window.scrollY > 300));
+    backTop.addEventListener('click', ()=> window.scrollTo({ top:0, behavior:'smooth' }));
+
+    (async function init(){
+      await renderCategories();
+      await loadProducts();
+      renderHot();
+    })();
+
+    // Thêm giỏ / Mua ngay (dùng firstVariant)
+    document.addEventListener('click', async (e)=>{
+      const addBtn = e.target.closest('.btn-add');
+      const buyBtn = e.target.closest('.btn-buy');
+      if(!addBtn && !buyBtn) return;
+
+      const pid = +(addBtn?.dataset.pid || buyBtn?.dataset.pid);
+      const pv = await Products.firstVariant(pid);
+      if(!pv){ alert('Sản phẩm chưa có biến thể.'); return; }
+      if((pv.quantity||0) <= 0){ alert('Sản phẩm đã hết hàng.'); return; }
+
+      addToCart(pid, pv.id, 1);
+      if (typeof updateCartCountBubble==='function') updateCartCountBubble();
+      if (buyBtn) location.href='checkout.html'; else alert('Đã thêm vào giỏ!');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Quản lý sản phẩm</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../styles/base.css" />
+  <style>
+    main.container { max-width: var(--max) }
+    .admin-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 16px }
+    .admin-head h2 { margin:0 }
+    .form-row { display:grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap:12px }
+    @media (max-width:720px){ .form-row { grid-template-columns:1fr } }
+    .form-note{ font-size:12px; color:#6b7280 }
+    .hint{ font-size:12px; color:#64748b }
+    .thumb{ width:56px; height:42px; object-fit:cover; border-radius:8px; border:1px solid var(--border) }
+    .tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 }
+    .tools input{ max-width:240px }
+    .name-cell strong{ display:block }
+    .v-thumb{ width:44px; height:34px; object-fit:cover; border-radius:6px; border:1px solid var(--border) }
+    .v-input{ max-width:160px }
+    .v-input-small{ max-width:110px }
+    .v-row td{ vertical-align:middle }
+  </style>
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main class="container my-3">
+    <div class="admin-head">
+      <h2>Quản lý sản phẩm</h2>
+      <div class="d-flex gap-2">
+        <!-- Tự ẩn nếu đang dùng API -->
+        <button class="btn btn-outline-secondary" id="btnReseq" title="Dồn lại ID sản phẩm (Local)">
+          <i class="bi bi-sort-numeric-down"></i> Dồn lại ID
+        </button>
+        <a class="btn btn-outline-secondary" href="../index.html">
+          <i class="bi bi-arrow-left"></i> Về trang bán hàng
+        </a>
+      </div>
+    </div>
+
+    <!-- Form metadata -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <input type="hidden" id="pid" value="">
+        <div class="form-row">
+          <div>
+            <label class="form-label fw-semibold">Tên sản phẩm</label>
+            <input id="name" class="form-control" placeholder="VD: iPhone 16">
+          </div>
+
+          <div>
+            <label class="form-label fw-semibold">Mã SP (ID số)</label>
+            <input id="sku" type="number" min="1" step="1" class="form-control" placeholder="1">
+            <div class="form-note">Dùng số 1, 2, 3, … Hệ thống tự gợi ý số tiếp theo khi thêm mới.</div>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label class="form-label fw-semibold">Danh mục</label>
+            <div class="d-flex gap-2 align-items-center">
+              <select id="cate_select" class="form-select" style="max-width:360px">
+                <option value="">— Chọn danh mục —</option>
+              </select>
+              <button type="button" class="btn btn-outline-primary" id="btnAddCate">
+                <i class="bi bi-plus-circle"></i> Danh mục
+              </button>
+            </div>
+            <div class="form-note">Có thể bấm “Danh mục” để tạo nhanh nếu chưa có.</div>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label class="form-label fw-semibold">Mô tả</label>
+            <input id="detail" class="form-control" placeholder="Mô tả ngắn">
+          </div>
+
+          <div>
+            <label class="form-label fw-semibold">Giá tiền (VND)</label>
+            <input id="price" type="number" min="0" step="1000" class="form-control" placeholder="VD: 20000000">
+            <div class="hint" id="priceHint">—</div>
+          </div>
+          <div>
+            <label class="form-label fw-semibold">Số lượng tồn</label>
+            <input id="quantity" type="number" min="0" step="1" class="form-control" placeholder="VD: 10">
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label class="form-label fw-semibold">Ảnh (URL)</label>
+            <input id="imageUrl" class="form-control" placeholder="https://...">
+            <div class="form-note">Dán URL ảnh sản phẩm. Không cần upload file.</div>
+          </div>
+
+          <div style="grid-column:1/-1" class="d-flex align-items-center gap-2">
+            <img id="preview" class="thumb" src="../images/placeholder.svg" alt="">
+            <span class="form-note">Xem trước ảnh</span>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary" id="saveBtn"><i class="bi bi-save2"></i> Lưu</button>
+          <button class="btn btn-secondary" id="resetBtn"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Biến thể -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Biến thể màu</h5>
+          <button class="btn btn-outline-primary btn-sm" id="addVarBtn"><i class="bi bi-plus-lg"></i> Thêm màu</button>
+        </div>
+        <div class="form-note mt-1">Ví dụ: Bạc (mặc định), Cam, Vàng… Mỗi màu có Giá, Tồn và Link ảnh riêng.</div>
+        <div id="variantWrap" class="table-responsive mt-3"></div>
+      </div>
+    </div>
+
+    <!-- Tools -->
+    <div class="tools">
+      <input id="q" class="form-control" placeholder="Tìm theo tên hoặc mã SP…">
+      <input id="cateFilter" class="form-control" placeholder="Lọc theo tên danh mục…">
+      <button class="btn btn-outline-secondary" id="applyFilter"><i class="bi bi-funnel"></i> Lọc</button>
+      <button class="btn btn-outline-secondary" id="clearFilter"><i class="bi bi-x-circle"></i> Bỏ lọc</button>
+    </div>
+
+    <!-- Bảng -->
+    <div class="card">
+      <div class="card-body p-0">
+        <div id="tableWrap"></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <!-- Libs -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Scripts (đường dẫn đúng + đúng thứ tự) -->
+  <script src="../js/utils.js"></script>
+  <script src="../js/cart.js"></script>
+
+  <script src="../js/api/_config.js"></script>
+  <script src="../js/api/categories.js"></script>
+  <script src="../js/api/products.js"></script>
+  <script src="../js/api/users.js"></script>
+  <script src="../js/api/orders.js"></script>
+
+  <script src="../js/auth.js"></script>
+  <script>window.PARTIAL_BASE='..';</script>
+  <script src="../js/layout.js"></script>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const dom = {
+        pid: $('pid'), name: $('name'), sku: $('sku'),
+        cate_select: $('cate_select'), detail: $('detail'),
+        price: $('price'), priceHint: $('priceHint'),
+        quantity: $('quantity'), imageUrl: $('imageUrl'), preview: $('preview'),
+        saveBtn: $('saveBtn'), resetBtn: $('resetBtn'),
+        tableWrap: $('tableWrap'),
+        q: $('q'), cateFilter: $('cateFilter'), applyFilter: $('applyFilter'), clearFilter: $('clearFilter'),
+        btnAddCate: $('btnAddCate'),
+        addVarBtn: $('addVarBtn'), variantWrap: $('variantWrap'),
+        btnReseq: $('btnReseq')
+      };
+
+      const hasAPI = () => !!(window.Products && typeof Products.all === 'function');
+
+      let editingId = null;
+      let cache = [];
+      let cateMap = {};
+
+      function formatMoney(n) { try { return formatVND(+n || 0); } catch { return (+n || 0).toLocaleString('vi-VN') + ' ₫'; } }
+      function escapeHtml(str = '') { return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s])); }
+
+      /* ===== Local helpers ===== */
+      function dbEnsure(){
+        const db = (typeof dbGet==='function') ? (dbGet()||{}) : {};
+        db.products = Array.isArray(db.products) ? db.products : [];
+        db.categories = Array.isArray(db.categories) ? db.categories : [];
+        db.product_variants = Array.isArray(db.product_variants) ? db.product_variants : [];
+        db.order_items = Array.isArray(db.order_items) ? db.order_items
+                      : (Array.isArray(db.order_details) ? db.order_details : []);
+        return db;
+      }
+      function dbWrite(db){ if (typeof dbSet==='function') dbSet(db); }
+
+      // Dồn lại ID sản phẩm LOCAL: cập nhật product_variants.product_id, order_items.product_id, cart items (nếu có)
+      function resequenceProductsLocal(){
+        if (hasAPI() || typeof dbGet !== 'function' || typeof dbSet !== 'function') return false;
+        const db = dbEnsure();
+        const sorted = [...db.products].sort((a,b)=>(+a.id)-(+b.id));
+        const idMap = new Map();
+        sorted.forEach((p,i)=>{ idMap.set(+p.id, i+1); p.id = i+1; });
+        // update foreign keys
+        db.product_variants.forEach(v => { const old = +v.product_id; if (idMap.has(old)) v.product_id = idMap.get(old); });
+        db.order_items.forEach( it => { const old = +it.product_id; if (idMap.has(old)) it.product_id = idMap.get(old); });
+        // mirror to cart items if any product_id field exists
+        try{
+          const cartKeys = ['ss_cart','cart','susan_cart_v1'];
+          for (const k of cartKeys){
+            const raw = localStorage.getItem(k); if (!raw) continue;
+            const obj = JSON.parse(raw);
+            const items = Array.isArray(obj?.items) ? obj.items : (Array.isArray(obj)? obj : []);
+            let changed = false;
+            for (const it of items){
+              if ('product_id' in it){
+                const old = +it.product_id;
+                if (idMap.has(old)){ it.product_id = idMap.get(old); changed = true; }
+              }
+            }
+            if (changed) localStorage.setItem(k, JSON.stringify(obj));
+          }
+        }catch{}
+        db.products = sorted;
+        dbWrite(db);
+        return true;
+      }
+
+      /* ===== Products helpers ===== */
+      async function getAllProducts() {
+        if (window.Products?.all) return await Products.all();
+        const db = dbEnsure(); return db.products;
+      }
+      function nextSkuNumber(list) {
+        const nums = (list || []).map(p => parseInt(p.sku || p.code || p.custom_id, 10)).filter(n => Number.isFinite(n) && n > 0);
+        return (nums.length ? Math.max(...nums) : 0) + 1;
+      }
+      async function safeProductsGet(id) {
+        const nid = +id;
+        if (window.Products?.get) { const p = await Products.get(nid); if (p) return p; }
+        const db = dbEnsure(); return (db.products || []).find(x => +x.id === nid) || null;
+      }
+      async function safeProductsUpdate(id, payload) {
+        const nid = +id;
+        if (window.Products?.update) return Products.update(nid, payload);
+        const db = dbEnsure(); const it = (db.products || []).find(x => +x.id === nid);
+        if (!it) return; Object.assign(it, payload); dbWrite(db);
+      }
+      async function safeProductsCreate(payload) {
+        if (window.Products?.create) return Products.create(payload);
+        const db = dbEnsure(); db.products = db.products || [];
+        const newId = db.products.length ? Math.max(...db.products.map(p => +p.id || 0)) + 1 : 1;
+        db.products.push({ id: newId, ...payload });
+
+        db.product_variants = db.product_variants || [];
+        const hasDef = db.product_variants.find(v => +v.product_id === +newId && (v.variant_name === 'Mặc định' || v.variant_name === 'Bạc'));
+        if (!hasDef) {
+          db.product_variants.push({
+            id: db.product_variants.length ? Math.max(...db.product_variants.map(v => +v.id || 0)) + 1 : 1,
+            product_id: newId, variant_name: 'Bạc', price: payload.price || 0, quantity: payload.quantity || 0, image: payload.image || null
+          });
+        }
+        dbWrite(db);
+        return { id: newId };
+      }
+      async function safeProductsRemove(id) {
+        const nid = +id;
+        if (window.Products?.remove) return Products.remove(nid);
+        const db = dbEnsure();
+        db.products = (db.products || []).filter(p => +p.id !== nid);
+        db.product_variants = (db.product_variants || []).filter(v => +v.product_id !== nid);
+        dbWrite(db);
+      }
+
+      /* ===== Variants ===== */
+      async function v_list(pid) {
+        const id = +pid;
+        if (window.Products?.variants) return await Products.variants(id);
+        const db = dbEnsure(); return (db.product_variants || []).filter(v => +v.product_id === id);
+      }
+      async function v_upsert(pid, rec) {
+        const id = +pid;
+        if (window.Products?.saveVariant) return Products.saveVariant(id, rec);
+        const db = dbEnsure(); db.product_variants = db.product_variants || [];
+        if (rec.id) {
+          const row = db.product_variants.find(v => +v.id === +rec.id);
+          if (!row) return; Object.assign(row, { product_id: id, ...rec });
+        } else {
+          const newId = db.product_variants.length ? Math.max(...db.product_variants.map(v => +v.id || 0)) + 1 : 1;
+          db.product_variants.push({ id: newId, product_id: id, variant_name: rec.variant_name || 'Mặc định', price: +rec.price || 0, quantity: +rec.quantity || 0, image: rec.image || null });
+        }
+        dbWrite(db);
+      }
+      async function v_remove(variantId) {
+        const vid = +variantId;
+        if (window.Products?.removeVariant) return Products.removeVariant(vid);
+        const db = dbEnsure(); db.product_variants = (db.product_variants || []).filter(v => +v.id !== vid); dbWrite(db);
+      }
+
+      /* ===== Categories ===== */
+      async function loadCategories() {
+        const list = await Categories.all();
+        cateMap = {};
+        dom.cate_select.innerHTML = '<option value="">— Chọn danh mục —</option>';
+        (list || []).forEach(c => {
+          cateMap[String(c.id)] = c.name;
+          const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; dom.cate_select.appendChild(opt);
+        });
+      }
+      async function createCategoryQuick(name, parent_id = null) {
+        if (window.Categories?.create) return Categories.create({ name, parent_id });
+        const db = dbEnsure(); db.categories = db.categories || []; const id = db.categories.length ? Math.max(...db.categories.map(x => +x.id || 0)) + 1 : 1;
+        db.categories.push({ id, name, parent_id: parent_id || null }); dbWrite(db); return { id, name };
+      }
+
+      /* ===== Form ===== */
+      async function prefillSkuIfNeeded() {
+        if (editingId) return;
+        const list = cache.length ? cache : await getAllProducts();
+        dom.sku.value = nextSkuNumber(list);
+      }
+      function resetForm() {
+        editingId = null;
+        dom.pid.value = ''; dom.name.value = ''; dom.cate_select.value = '';
+        dom.detail.value = ''; dom.price.value = ''; dom.priceHint.textContent = '—';
+        dom.quantity.value = ''; dom.imageUrl.value = ''; dom.preview.src = '../images/placeholder.svg';
+        dom.saveBtn.innerHTML = '<i class="bi bi-save2"></i> Lưu';
+        prefillSkuIfNeeded();
+        renderVariantTable();
+      }
+      dom.price.addEventListener('input', () => { const v = +dom.price.value || 0; dom.priceHint.textContent = v > 0 ? ('≈ ' + formatMoney(v)) : '—'; });
+      dom.imageUrl.addEventListener('input', () => { dom.preview.src = dom.imageUrl.value || '../images/placeholder.svg'; });
+      dom.sku.addEventListener('input', () => { let v = parseInt(dom.sku.value || '0', 10); if (!Number.isFinite(v) || v < 1) v = 1; dom.sku.value = v; });
+      dom.btnAddCate.addEventListener('click', async () => {
+        const name = prompt('Tên danh mục mới:'); if (!name) return;
+        await createCategoryQuick(name.trim()); await loadCategories();
+        const id = Object.keys(cateMap).find(k => cateMap[k].toLowerCase() === name.trim().toLowerCase());
+        if (id) dom.cate_select.value = id;
+        alert('Đã thêm danh mục!');
+      });
+
+      /* ===== Variants UI ===== */
+      async function renderVariantTable() {
+        if (!editingId) {
+          dom.addVarBtn.disabled = true;
+          dom.variantWrap.innerHTML =
+            '<div class="alert alert-warning mb-0">Hãy <b>Lưu sản phẩm</b> trước, sau đó bạn có thể thêm biến thể màu (Bạc, Cam, Vàng…)</div>';
+          return;
+        }
+        dom.addVarBtn.disabled = false;
+
+        const list = await v_list(editingId);
+        const rows = (list || []).map(v => `
+        <tr class="v-row" data-vid="${v.id}">
+          <td style="width:52px"><img class="v-thumb" src="${v.image || '../images/placeholder.svg'}" alt=""></td>
+          <td><input class="form-control form-control-sm v-input" data-f="variant_name" placeholder="Bạc / Cam / Vàng…" value="${escapeHtml(v.variant_name || '')}"></td>
+          <td><input class="form-control form-control-sm v-input-small" data-f="price" type="number" min="0" step="1000" value="${+v.price || 0}"></td>
+          <td><input class="form-control form-control-sm v-input-small" data-f="quantity" type="number" min="0" step="1" value="${+v.quantity || 0}"></td>
+          <td><input class="form-control form-control-sm v-input" data-f="image" placeholder="https://link-anh…" value="${escapeHtml(v.image || '')}"></td>
+          <td class="text-end" style="width:170px">
+            <button class="btn btn-success btn-sm me-1 act-vsave"><i class="bi bi-check2"></i> Lưu</button>
+            <button class="btn btn-outline-danger btn-sm act-vdel"><i class="bi bi-trash3"></i> Xóa</button>
+          </td>
+        </tr>`).join('');
+
+        dom.variantWrap.innerHTML = `
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="width:52px">Ảnh</th>
+              <th>Màu / Tên biến thể</th>
+              <th style="width:120px">Giá</th>
+              <th style="width:120px">Tồn</th>
+              <th>Link ảnh</th>
+              <th class="text-end" style="width:170px">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="6" class="text-center text-muted py-3">Chưa có biến thể.</td></tr>`}</tbody>
+        </table>`;
+      }
+
+      dom.addVarBtn.addEventListener('click', async () => {
+        if (!editingId) { alert('Hãy lưu sản phẩm trước khi thêm biến thể.'); return; }
+        await v_upsert(editingId, { variant_name: 'Bạc', price: +(dom.price.value || 0), quantity: +(dom.quantity.value || 0), image: dom.imageUrl.value || '' });
+        await renderVariantTable();
+        alert('Đã thêm biến thể mới.');
+      });
+
+      dom.variantWrap.addEventListener('click', async (e) => {
+        const tr = e.target.closest('.v-row'); if (!tr) return;
+        const vid = +tr.getAttribute('data-vid');
+        if (e.target.closest('.act-vsave')) {
+          const get = f => tr.querySelector(`[data-f="${f}"]`)?.value?.trim() || '';
+          const rec = {
+            id: vid,
+            variant_name: get('variant_name') || 'Mặc định',
+            price: +(tr.querySelector('[data-f="price"]').value || 0),
+            quantity: +(tr.querySelector('[data-f="quantity"]').value || 0),
+            image: get('image')
+          };
+          await v_upsert(editingId, rec);
+          await renderVariantTable();
+        }
+        if (e.target.closest('.act-vdel')) {
+          if (!confirm('Xóa biến thể này?')) return;
+          await v_remove(vid);
+          await renderVariantTable();
+        }
+      });
+
+      /* ===== Bảng + Lọc ===== */
+      function applyLocalFilter() {
+        const kw = (dom.q.value || '').trim().toLowerCase();
+        const cateName = (dom.cateFilter.value || '').trim().toLowerCase();
+        let list = [...cache];
+        if (kw) list = list.filter(p =>
+          (p.name || '').toLowerCase().includes(kw) ||
+          String(p.sku || p.code || p.custom_id || '').toLowerCase().includes(kw) ||
+          (p.detail || '').toLowerCase().includes(kw)
+        );
+        if (cateName) list = list.filter(p => (cateMap[String(p.cate_id)] || '').toLowerCase().includes(cateName));
+        renderTable(list);
+      }
+      dom.applyFilter.addEventListener('click', applyLocalFilter);
+      dom.clearFilter.addEventListener('click', () => { dom.q.value = ''; dom.cateFilter.value = ''; renderTable(cache); });
+
+      async function renderTable(source) {
+        const data = Array.isArray(source) ? source : await getAllProducts();
+        if (!Array.isArray(source)) cache = data;
+        let rows = '';
+        for (const p of data) {
+          const priceText = (p.minPrice || 0) === (p.maxPrice || 0) ? formatMoney(p.minPrice || p.price || 0)
+            : `${formatMoney(p.minPrice || 0)} – ${formatMoney(p.maxPrice || 0)}`;
+
+          let qty = 0;
+          try {
+            const variants = await v_list(p.id);
+            const def = Array.isArray(variants) ? variants[0] : null;
+            qty = def ? (+def.quantity || 0) : 0;
+          } catch { }
+
+          rows += `<tr data-id="${p.id}">
+          <td class="text-secondary" style="width:120px">${p.id}</td>
+          <td style="width:72px"><img class="thumb" src="${p.image || '../images/placeholder.svg'}" alt=""></td>
+          <td class="name-cell">
+            <strong>${escapeHtml(p.name || '')}</strong>
+            <span class="form-note">Mã SP: ${escapeHtml(String(p.sku || p.code || p.custom_id || '—'))}</span>
+          </td>
+          <td>${escapeHtml(cateMap[String(p.cate_id)] || ('#' + p.cate_id))}</td>
+          <td>${priceText}</td>
+          <td>${qty}</td>
+          <td class="text-end" style="white-space:nowrap;width:200px">
+            <button class="btn btn-sm btn-outline-primary me-1 act-edit"><i class="bi bi-pencil-square"></i> Sửa</button>
+            <button class="btn btn-sm btn-outline-danger act-del"><i class="bi bi-trash3"></i> Xóa</button>
+          </td>
+        </tr>`;
+        }
+        dom.tableWrap.innerHTML = `
+        <table class="table mb-0 align-middle">
+          <thead>
+            <tr>
+              <th style="width:120px">ID</th>
+              <th style="width:72px">Ảnh</th>
+              <th>Tên / Mã SP</th>
+              <th>Danh mục</th>
+              <th>Giá</th>
+              <th>Tồn</th>
+              <th class="text-end" style="width:200px">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="7" class="text-center text-muted py-4">Chưa có sản phẩm.</td></tr>`}</tbody>
+        </table>`;
+      }
+
+      /* ===== Edit / Delete / Save ===== */
+      async function fillForm(id) {
+        const p = await safeProductsGet(+id);
+        if (!p) return alert('Không tìm thấy sản phẩm!');
+        editingId = +id;
+        dom.pid.value = editingId;
+        dom.name.value = p.name || '';
+        dom.sku.value = parseInt(p.sku || p.code || p.custom_id || '1', 10) || 1;
+        dom.cate_select.value = p.cate_id || '';
+        dom.detail.value = p.detail || '';
+        dom.price.value = p.price || '';
+        dom.priceHint.textContent = p.price ? ('≈ ' + formatMoney(p.price)) : '—';
+        dom.imageUrl.value = p.image || '';
+        dom.preview.src = p.image || '../images/placeholder.svg';
+        try {
+          const vs = await v_list(editingId);
+          const def = Array.isArray(vs) ? vs[0] : null;
+          dom.quantity.value = def ? (def.quantity || 0) : '';
+        } catch { dom.quantity.value = ''; }
+        dom.saveBtn.innerHTML = '<i class="bi bi-save2"></i> Cập nhật';
+        await renderVariantTable();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      async function deleteProduct(id) {
+        await safeProductsRemove(+id);
+        await renderTable();
+        await prefillSkuIfNeeded();
+        await renderVariantTable();
+      }
+      document.addEventListener('click', (e) => {
+        const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+        const id = +tr.getAttribute('data-id');
+        if (e.target.closest('.act-edit')) fillForm(id);
+        else if (e.target.closest('.act-del')) {
+          const name = tr.querySelector('.name-cell strong')?.textContent?.trim() || '';
+          if (confirm(`Xóa sản phẩm “${name}”?`)) deleteProduct(id);
+        }
+      });
+
+      async function handleSave() {
+        const payload = {
+          name: (dom.name.value || '').trim(),
+          sku: String(parseInt(dom.sku.value || '1', 10) || 1),
+          cate_id: +(dom.cate_select.value || 0),
+          detail: (dom.detail.value || '').trim(),
+          price: +(dom.price.value || 0),
+          quantity: +(dom.quantity.value || 0),
+          image: (dom.imageUrl.value || '').trim()
+        };
+        if (!payload.name) { alert('Nhập tên sản phẩm'); return; }
+        if (!payload.cate_id) { alert('Chọn danh mục'); return; }
+
+        if (editingId) {
+          await safeProductsUpdate(editingId, payload);
+          alert('Đã cập nhật sản phẩm!');
+        } else {
+          const r = await safeProductsCreate(payload);
+          editingId = r?.id || null;
+          alert('Đã thêm sản phẩm! Bây giờ bạn có thể thêm các biến thể màu.');
+        }
+        await loadCategories();
+        await renderTable();
+        await renderVariantTable();
+      }
+      dom.saveBtn.addEventListener('click', handleSave);
+      dom.resetBtn.addEventListener('click', resetForm);
+
+      /* ===== Resequence button ===== */
+      dom.btnReseq.classList.toggle('d-none', hasAPI());
+      dom.btnReseq.addEventListener('click', async () => {
+        if (hasAPI()) return;
+        if (!confirm('Dồn lại ID sản phẩm về 1..n và cập nhật toàn bộ khoá ngoại liên quan?')) return;
+        const ok = resequenceProductsLocal();
+        await loadCategories();
+        await renderTable();
+        await renderVariantTable();
+        if (ok) alert('Đã dồn lại ID sản phẩm (Local).');
+      });
+
+      /* ===== Init ===== */
+      (async () => {
+        await loadCategories();
+        await renderTable();
+        await prefillSkuIfNeeded();
+        await renderVariantTable();
+        dom.price.dispatchEvent(new Event('input'));
+      })();
+    })();
+  </script>
+</body>
+</html>

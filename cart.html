@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Giỏ hàng</title>
+
+  <!-- Favicon (tránh 404) -->
+  <link rel="icon" href="favicon.ico">
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- CSS chung -->
+  <link rel="stylesheet" href="styles/base.css"/>
+  <style>
+    main.container{ max-width: var(--max,1080px); }
+    .cart-table img{
+      width:64px;height:48px;object-fit:cover;border-radius:8px;
+      border:1px solid var(--border,#e5e7eb);background:#fff;
+    }
+    .qty-input{ width:90px; }
+    .muted{ color:#64748b; }
+    .empty{
+      text-align:center; padding:28px; border-radius:12px;
+      background:#f8fafc; border:1px solid var(--border,#e5e7eb);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header động -->
+  <div id="app-header"></div>
+
+  <main class="container my-3 my-md-4">
+    <h2 class="mb-3">Giỏ hàng</h2>
+    <div id="cartView"></div>
+  </main>
+
+ <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/auth.js"></script>
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+
+  <script>
+    /* =========================
+       1) CART HELPERS (tương thích)
+       ========================= */
+    const CART_KEYS = ['ss_cart', 'cart', 'susan_cart_v1'];
+
+    function normCart(raw){
+      if (!raw) return { items: [] };
+      if (Array.isArray(raw)) return { items: raw };
+      if (typeof raw === 'object' && Array.isArray(raw.items)) return raw;
+      return { items: [] };
+    }
+
+    function readFirstCart(){
+      for (const k of CART_KEYS){
+        try{
+          const raw = localStorage.getItem(k);
+          if (raw){
+            const c = JSON.parse(raw);
+            const nc = normCart(c);
+            // dùng cart đầu tiên (kể cả rỗng) để tránh mismatch cross-key
+            return { key:k, cart:nc };
+          }
+        }catch{}
+      }
+      return { key: CART_KEYS[0], cart: { items: [] } };
+    }
+
+    function fallbackGetCart(){ return readFirstCart().cart; }
+
+    function fallbackSetCart(cart){
+      const nc = normCart(cart);
+      for (const k of CART_KEYS){
+        try{ localStorage.setItem(k, JSON.stringify(nc)); }catch{}
+      }
+    }
+
+    function safeGetCart(){
+      try{
+        const c = (typeof getCart==='function') ? getCart() : fallbackGetCart();
+        return normCart(c);
+      }catch{
+        return fallbackGetCart();
+      }
+    }
+    function safeSetCart(cart){
+      const nc = normCart(cart);
+      try{ if (typeof setCart==='function') setCart(nc); }catch{}
+      fallbackSetCart(nc);
+    }
+    function safeSetQty(variantId, qty){
+      const cart = safeGetCart();
+      const idx = (cart.items||[]).findIndex(it => +it.variant_id === +variantId);
+      if (idx < 0){
+        if (qty > 0) cart.items.push({ variant_id:+variantId, quantity:+qty });
+      } else {
+        if (qty <= 0) cart.items.splice(idx,1);
+        else cart.items[idx].quantity = +qty;
+      }
+      safeSetCart(cart);
+    }
+    function safeRemove(variantId){
+      const cart = safeGetCart();
+      cart.items = (cart.items||[]).filter(it => +it.variant_id !== +variantId);
+      safeSetCart(cart);
+    }
+    function safeClear(){ safeSetCart({ items: [] }); }
+
+    function cartCount(){
+      const c = safeGetCart();
+      return (c.items||[]).reduce((s,it)=> s + (+it.quantity||0), 0);
+    }
+    // Back-compat: syncBadge sẽ gọi strict từ layout.js nếu có
+    function syncBadge(){
+      if (typeof syncBadgeStrict === 'function') return syncBadgeStrict();
+      const span = document.getElementById('cart-count');
+      if (span) span.textContent = String(cartCount());
+    }
+    function money(n){
+      try{ return formatVND(+n||0); }catch{ return (+n||0).toLocaleString('vi-VN')+' ₫'; }
+    }
+
+    /* =========================
+       2) PRODUCT HELPERS
+       ========================= */
+    async function safeGetVariant(variantId){
+      if (window.Products){
+        if (typeof Products.getVariant === 'function'){
+          const v = await Products.getVariant(+variantId);
+          if (v) return v;
+        }
+        if (typeof Products.allVariants === 'function'){
+          const all = await Products.allVariants();
+          return (all||[]).find(v => +v.id === +variantId) || null;
+        }
+      }
+      try{
+        const db = dbGet();
+        return (db.product_variants||[]).find(v => +v.id === +variantId) || null;
+      }catch{ return null; }
+    }
+    async function safeGetProduct(productId){
+      if (window.Products){
+        if (typeof Products.get === 'function'){
+          const p = await Products.get(+productId);
+          if (p) return p;
+        }
+        if (typeof Products.all === 'function'){
+          const all = await Products.all();
+          return (all||[]).find(p => +p.id === +productId) || null;
+        }
+      }
+      try{
+        const db = dbGet();
+        return (db.products||[]).find(p => +p.id === +productId) || null;
+      }catch{ return null; }
+    }
+
+    /* =========================
+       3) RENDER CART
+       ========================= */
+    async function renderCart(){
+      const wrap = document.getElementById('cartView');
+      const cart = safeGetCart();
+      const items = cart.items || [];
+
+      if(!items.length){
+        wrap.innerHTML = `
+          <div class="empty">
+            <div class="mb-2">🛒 Giỏ hàng của bạn đang trống.</div>
+            <a class="btn primary" href="index.html">Tiếp tục mua sắm</a>
+          </div>`;
+        syncBadge(); // sẽ ẩn badge nếu strict có mặt
+        return;
+      }
+
+      let rows = '';
+      let subtotal = 0;
+
+      for(const it of items){
+        const variant = await safeGetVariant(+it.variant_id);
+        if(!variant) continue; // bỏ dòng lỗi
+        const product = await safeGetProduct(+variant.product_id);
+        const pImg = (product && product.image) ? product.image : 'images/placeholder.svg';
+        const name = product?.name || 'Sản phẩm';
+        const vName = variant.variant_name || 'Mặc định';
+        const unit = +variant.price || 0;
+        const stock = Number(variant.quantity);
+        const maxQty = Number.isFinite(stock) ? Math.max(1, stock) : 999999;
+        const qty = Math.max(1, Math.min(+it.quantity||1, maxQty));
+        const line = unit * qty;
+        subtotal += line;
+
+        rows += `
+          <tr>
+            <td><img src="${pImg}" alt=""></td>
+            <td>
+              <div><a href="product.html?id=${product?.id||''}"><strong>${name}</strong></a></div>
+              <div class="muted small">Biến thể: ${vName}</div>
+              ${Number.isFinite(stock) ? `<div class="muted small">Còn lại: ${stock}</div>` : ''}
+            </td>
+            <td>${money(unit)}</td>
+            <td>
+              <input class="qty-input form-control form-control-sm" type="number" min="1" step="1"
+                     value="${qty}" data-vid="${variant.id}">
+            </td>
+            <td>${money(line)}</td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" data-remove="${variant.id}">
+                <i class="bi bi-trash"></i> Xóa
+              </button>
+            </td>
+          </tr>`;
+      }
+
+      wrap.innerHTML = `
+        <div class="card p-3">
+          <div class="table-responsive">
+            <table class="table cart-table align-middle">
+              <thead>
+                <tr>
+                  <th>Ảnh</th>
+                  <th>Sản phẩm</th>
+                  <th>Đơn giá</th>
+                  <th style="width:120px">Số lượng</th>
+                  <th>Thành tiền</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mt-2">
+            <a class="btn outline" href="index.html">⟵ Tiếp tục mua sắm</a>
+            <div class="text-end">
+              <div class="mb-2"><strong>Tạm tính: ${money(subtotal)}</strong></div>
+              <a class="btn primary" id="btnCheckout">Thanh toán</a>
+            </div>
+          </div>
+        </div>`;
+
+      // Đổi số lượng
+      wrap.querySelectorAll('input.qty-input').forEach(inp => {
+        inp.addEventListener('change', async (e) => {
+          const vid = +e.target.dataset.vid;
+          let q = Math.max(1, +e.target.value||1);
+          const v = await safeGetVariant(vid);
+          const max = Number(v?.quantity);
+          if (Number.isFinite(max) && q > max){
+            alert(`Chỉ còn ${max} sản phẩm cho biến thể này.`);
+            q = max; e.target.value = q;
+          }
+          safeSetQty(vid, q);
+          await renderCart();
+          syncBadge();
+        });
+      });
+
+      // Xóa dòng
+      wrap.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const vid = +e.currentTarget.getAttribute('data-remove');
+          safeRemove(vid);
+          await renderCart();
+          syncBadge();
+        });
+      });
+
+      // Thanh toán
+      document.getElementById('btnCheckout')?.addEventListener('click', placeOrder);
+    }
+
+    /* =========================
+       4) CHECKOUT – ghi db + trừ kho
+       ========================= */
+    async function placeOrder(){
+      const user = (typeof currentUser === 'function') ? currentUser() : null;
+      if(!user){
+        alert('Vui lòng đăng nhập trước khi thanh toán.');
+        location.href = 'login.html?redirect=cart';
+        return;
+      }
+
+      const cart = safeGetCart();
+      const items = cart.items || [];
+      if(!items.length){ alert('Giỏ hàng trống.'); return; }
+
+      // Kiểm tồn
+      for(const it of items){
+        const v = await safeGetVariant(+it.variant_id);
+        if(!v){ alert('Một số biến thể không còn tồn tại.'); return; }
+        const remain = Number(v.quantity);
+        const need = +it.quantity || 0;
+        if (Number.isFinite(remain) && need > remain){
+          alert(`Biến thể "${v.variant_name||'Mặc định'}" chỉ còn ${remain}.`);
+          return;
+        }
+      }
+
+      // Ghi đơn + trừ kho
+      const db = dbGet();
+      db.orders = db.orders || [];
+      db.order_details = db.order_details || [];
+
+      const nextOrderId = (db.orders.length ? Math.max(...db.orders.map(o=>+o.id||0))+1 : 1);
+      let total = 0;
+      let nextDetailId = (db.order_details.length ? Math.max(...db.order_details.map(d=>+d.id||0))+1 : 1);
+
+      for(const it of items){
+        const v = (db.product_variants||[]).find(x => +x.id === +it.variant_id);
+        if(!v) continue;
+        const unit = +v.price || 0;
+        const qty = +it.quantity || 0;
+        total += unit * qty;
+
+        if (Number.isFinite(+v.quantity)) v.quantity = Math.max(0, (+v.quantity||0) - qty);
+
+        db.order_details.push({
+          id: nextDetailId++,
+          order_id: nextOrderId,
+          product_id: +v.product_id,
+          variant_id: +v.id,
+          quantity: qty,
+          unit_price: unit
+        });
+      }
+
+      db.orders.push({
+        id: nextOrderId,
+        user_id: user.id,
+        created_date: new Date().toISOString(),
+        status: 'paid',
+        total
+      });
+
+      dbSet(db);
+      safeClear();
+      syncBadge();
+
+      location.href = 'thankyou.html?order_id=' + nextOrderId;
+    }
+
+    // INIT trang giỏ
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (typeof syncBadgeStrict === 'function') await syncBadgeStrict(); // tránh nháy 0
+      await renderCart();
+    });
+
+    // Đồng bộ giữa tab
+    window.addEventListener('storage', (e) => {
+      if (["ss_cart","cart","susan_cart_v1"].includes(e.key)) {
+        if (typeof syncBadgeStrict === 'function') syncBadgeStrict();
+      }
+    });
+  </script>
+
+  <!-- Header/Footer động -->
+  <script>window.PARTIAL_BASE='.';</script>
+  <script src="js/layout.js"></script>
+</body>
+</html>

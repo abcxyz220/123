@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin – Quản lý khách hàng</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles/base.css"/>
+  <style>
+    main.container{ max-width: var(--max); }
+    .admin-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 16px; }
+    .admin-head h2{ margin:0; }
+    .form-row{ display:grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap:12px; }
+    @media (max-width: 720px){ .form-row{ grid-template-columns:1fr; } }
+    .table thead th{ background:#f9fafb; }
+    .cell-actions{ white-space:nowrap; width:220px; }
+    .muted{ color:#6b7280 }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div id="app-header"></div>
+
+  <main class="container my-3">
+    <div class="admin-head">
+      <h2>Quản lý khách hàng</h2>
+      <div class="d-flex gap-2">
+        <!-- Ẩn khi dùng API/JSON Server -->
+        <button class="btn btn-outline-secondary" id="btnReseq" title="Dồn lại ID người dùng (Local)">
+          <i class="bi bi-sort-numeric-down"></i> Dồn lại ID
+        </button>
+        <a class="btn btn-outline-secondary" href="../index.html">
+          <i class="bi bi-arrow-left"></i> Về trang bán hàng
+        </a>
+      </div>
+    </div>
+
+    <!-- Form thêm -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="form-row">
+          <div>
+            <label class="form-label fw-semibold">Tên</label>
+            <input id="name" class="form-control" placeholder="VD: Nguyễn Văn A">
+          </div>
+          <div>
+            <label class="form-label fw-semibold">Email</label>
+            <input id="email" class="form-control" placeholder="VD: a@gmail.com">
+          </div>
+          <div>
+            <label class="form-label fw-semibold">Điện thoại</label>
+            <input id="phone" class="form-control" placeholder="VD: 0901234567">
+          </div>
+          <div>
+            <label class="form-label fw-semibold">Địa chỉ</label>
+            <input id="address" class="form-control" placeholder="VD: 123 Lê Lợi, Q.1, TP.HCM">
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary" id="saveBtn"><i class="bi bi-person-plus"></i> Lưu</button>
+          <button class="btn btn-secondary" id="resetBtn"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng -->
+    <div class="card">
+      <div class="card-body p-0">
+        <div id="tableWrap"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer (tùy chọn) -->
+  <div id="app-footer"></div>
+
+  <!-- Libs -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Core JS (THỨ TỰ BẮT BUỘC) -->
+  <script src="../js/utils.js"></script>
+  <script src="../js/cart.js"></script>
+
+  <!-- API config + modules -->
+  <script src="../js/api/_config.js"></script>
+  <script src="../js/api/categories.js"></script>
+  <script src="../js/api/products.js"></script>
+  <script src="../js/api/users.js"></script>
+  <script src="../js/api/orders.js"></script>
+
+  <!-- Auth + Header/Footer -->
+  <script src="../js/auth.js"></script>
+  <script>window.PARTIAL_BASE='..';</script>
+  <script src="../js/layout.js"></script>
+
+  <!-- Page logic -->
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const dom = {
+      name: $('name'), email: $('email'), phone: $('phone'), address: $('address'),
+      saveBtn: $('saveBtn'), resetBtn: $('resetBtn'), tableWrap: $('tableWrap'),
+      btnReseq: $('btnReseq')
+    };
+
+    const hasAPI = () => !!(window.Users && typeof Users.all === 'function' && typeof Users.create === 'function');
+
+    function escapeHtml(str=''){ return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+    function isEmail(x){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x); }
+
+    // Tạo 2 user mặc định nếu DB rỗng + mirror LS (để lần đầu luôn có dữ liệu)
+    async function ensureDefaultUsers(){
+      if(typeof dbGet!=='function'||typeof dbSet!=='function') return;
+      const db = dbGet(); db.users = Array.isArray(db.users) ? db.users : [];
+      if (db.users.length === 0) {
+        db.users.push(
+          { id:1, name:'Admin', email:'admin@susanshop.com', phone:'0900000001', address:'Hà Nội',  password:'123456', role:'admin',  avatar:'' },
+          { id:2, name:'Khách hàng', email:'user@susanshop.com',  phone:'0900000002', address:'TP.HCM', password:'123456', role:'member', avatar:'' },
+        );
+        dbSet(db);
+      }
+      try{ localStorage.setItem('users', JSON.stringify(db.users)); }catch{}
+    }
+
+    // ===== Dồn lại ID LOCAL: users.id -> 1..n, cập nhật orders.user_id + session trong localStorage
+    function resequenceUsersLocal(){
+      if (hasAPI() || typeof dbGet!=='function' || typeof dbSet!=='function') return false;
+
+      const db = dbGet() || {};
+      const users = Array.isArray(db.users) ? [...db.users] : [];
+      if (!users.length) return false;
+
+      // tạo map old->new theo thứ tự id tăng dần
+      users.sort((a,b)=>(+a.id)-(+b.id));
+      const idMap = new Map();
+      users.forEach((u,i)=>{ idMap.set(+u.id, i+1); u.id = i+1; });
+
+      // cập nhật orders.user_id
+      db.orders = Array.isArray(db.orders) ? db.orders : [];
+      db.orders.forEach(o => {
+        const old = +o.user_id;
+        if (idMap.has(old)) o.user_id = idMap.get(old);
+      });
+
+      // cập nhật session trong localStorage
+      try{
+        const KEYS = ['susan_session_user','ss_user','session_user','session_user_id'];
+        for (const k of KEYS){
+          const raw = localStorage.getItem(k);
+          if (!raw) continue;
+
+          // nếu là object json
+          try{
+            const obj = JSON.parse(raw);
+            if (obj && typeof obj === 'object'){
+              const old = +(obj.id ?? obj.user_id);
+              if (idMap.has(old)){
+                const nu = idMap.get(old);
+                if ('id' in obj) obj.id = nu;
+                if ('user_id' in obj) obj.user_id = nu;
+                localStorage.setItem(k, JSON.stringify(obj));
+                continue;
+              }
+            }
+          }catch{}
+
+          // nếu là id thô
+          const oldNum = parseInt(raw,10);
+          if (Number.isFinite(oldNum) && idMap.has(oldNum)){
+            localStorage.setItem(k, String(idMap.get(oldNum)));
+          }
+        }
+      }catch{}
+
+      // ghi DB + mirror users vào LS
+      db.users = users;
+      dbSet(db);
+      try{ localStorage.setItem('users', JSON.stringify(users)); }catch{}
+      return true;
+    }
+
+    // Fallback cho update/remove nếu API chưa có
+    async function updateUserLocal(id, patch){
+      if(typeof dbGet!=='function'||typeof dbSet!=='function') return;
+      const db=dbGet(); const u=(db.users||[]).find(x=>String(x.id)===String(id));
+      if(!u) return; Object.assign(u, patch); dbSet(db);
+      try{ localStorage.setItem('users', JSON.stringify(db.users||[])); }catch{}
+    }
+    async function deleteUserLocal(id){
+      if(typeof dbGet!=='function'||typeof dbSet!=='function') return;
+      const db=dbGet(); db.users=(db.users||[]).filter(x=>String(x.id)!==String(id)); dbSet(db);
+      try{ localStorage.setItem('users', JSON.stringify(db.users||[])); }catch{}
+    }
+
+    async function renderTable(){
+      try{
+        const data = await Users.all();
+        const rows = (data||[]).map(u => `
+          <tr data-id="${u.id}">
+            <td class="text-secondary" style="width:120px">${u.id}</td>
+            <td class="name-cell">${escapeHtml(u.name||'')}</td>
+            <td class="email-cell">${escapeHtml(u.email||'')}</td>
+            <td class="phone-cell">${escapeHtml(u.phone||'')}</td>
+            <td class="addr-cell">${escapeHtml(u.address||'')}</td>
+            <td class="text-end" style="white-space:nowrap;width:220px">
+              <button class="btn btn-sm btn-outline-primary me-1 act-edit"><i class="bi bi-pencil-square"></i> Sửa</button>
+              <button class="btn btn-sm btn-outline-danger act-del"><i class="bi bi-trash3"></i> Xóa</button>
+            </td>
+          </tr>`).join('');
+
+        dom.tableWrap.innerHTML = `
+          <table class="table mb-0 align-middle">
+            <thead>
+              <tr>
+                <th style="width:120px">ID</th>
+                <th>Tên</th>
+                <th>Email</th>
+                <th>Điện thoại</th>
+                <th>Địa chỉ</th>
+                <th class="text-end" style="width:220px">Sửa / Xóa</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="6" class="text-center py-4 text-muted">Chưa có khách hàng.</td></tr>`}</tbody>
+          </table>`;
+      }catch(err){
+        console.error('Users.all() error:', err);
+        dom.tableWrap.innerHTML = `<div class="p-3 text-danger">Không tải được danh sách: ${escapeHtml(err?.message||String(err))}</div>`;
+      }
+    }
+
+    function startEdit(tr){
+      const name = tr.querySelector('.name-cell').textContent.trim();
+      const email= tr.querySelector('.email-cell').textContent.trim();
+      const phone= tr.querySelector('.phone-cell').textContent.trim();
+      const addr = tr.querySelector('.addr-cell').textContent.trim();
+      tr.querySelector('.name-cell').innerHTML  = `<input class="form-control form-control-sm" value="${escapeHtml(name)}">`;
+      tr.querySelector('.email-cell').innerHTML = `<input class="form-control form-control-sm" value="${escapeHtml(email)}">`;
+      tr.querySelector('.phone-cell').innerHTML = `<input class="form-control form-control-sm" value="${escapeHtml(phone)}">`;
+      tr.querySelector('.addr-cell').innerHTML  = `<input class="form-control form-control-sm" value="${escapeHtml(addr)}">`;
+      tr.querySelector('td.text-end').innerHTML = `
+        <button class="btn btn-sm btn-success me-1 act-save"><i class="bi bi-check2-circle"></i> Lưu</button>
+        <button class="btn btn-sm btn-secondary act-cancel"><i class="bi bi-x-circle"></i> Hủy</button>`;
+    }
+
+    async function saveEdit(tr){
+      const id = tr.getAttribute('data-id');
+      const patch = {
+        name: tr.querySelector('.name-cell input').value.trim(),
+        email: tr.querySelector('.email-cell input').value.trim(),
+        phone: tr.querySelector('.phone-cell input').value.trim(),
+        address: tr.querySelector('.addr-cell input').value.trim(),
+      };
+      if(!patch.name){ alert('Tên không được trống'); return; }
+      if(patch.email && !isEmail(patch.email)){ alert('Email không hợp lệ'); return; }
+      try{
+        if(Users.update) await Users.update(id, patch);
+        else await updateUserLocal(id, patch);
+      }catch(e){ alert(e?.message||e); }
+      await renderTable();
+    }
+
+    async function deleteRow(tr){
+  const idRaw = tr.getAttribute('data-id');
+  const idNum = parseInt(idRaw, 10);
+  if (!Number.isFinite(idNum) || idNum <= 0) {
+    alert('Bản ghi có ID không hợp lệ (id=null/0). Vui lòng sửa lại dữ liệu trước.');
+    return;
+  }
+  const name = tr.querySelector('.name-cell')?.textContent?.trim() || '';
+  if(!confirm(`Xóa khách hàng “${name}”?`)) return;
+  try{
+    await Users.remove(idNum);
+  }catch(e){ alert(e?.message||e); }
+  await renderTable();
+}
+
+
+    document.addEventListener('click', (e)=>{
+      const tr = e.target.closest('tr[data-id]');
+      if(!tr) return;
+      if(e.target.closest('.act-edit'))   startEdit(tr);
+      if(e.target.closest('.act-save'))   saveEdit(tr);
+      if(e.target.closest('.act-cancel')) renderTable();
+      if(e.target.closest('.act-del'))    deleteRow(tr);
+    });
+
+    dom.saveBtn.addEventListener('click', async ()=>{
+      const payload = {
+        name:(dom.name.value||'').trim(),
+        email:(dom.email.value||'').trim(),
+        phone:(dom.phone.value||'').trim(),
+        address:(dom.address.value||'').trim(),
+        password:'123456', role:'member'
+      };
+      if(!payload.name){ dom.name.focus(); return; }
+      if(payload.email && !isEmail(payload.email)){ alert('Email không hợp lệ'); dom.email.focus(); return; }
+      try{ await Users.create(payload); }catch(e){ alert(e?.message||e); }
+      dom.name.value = dom.email.value = dom.phone.value = dom.address.value = '';
+      await renderTable();
+    });
+
+    dom.resetBtn.addEventListener('click', ()=>{ dom.name.value = dom.email.value = dom.phone.value = dom.address.value = ''; });
+
+    // Nút dồn lại ID (ẩn nếu dùng API)
+    dom.btnReseq.classList.toggle('d-none', hasAPI());
+    dom.btnReseq.addEventListener('click', async ()=>{
+      if (hasAPI()) return;
+      if (!confirm('Dồn lại ID người dùng về 1..n và cập nhật đơn hàng + session local?')) return;
+      const ok = resequenceUsersLocal();
+      await renderTable();
+      if (ok) alert('Đã dồn lại ID người dùng (Local).');
+    });
+
+    (async ()=>{ await ensureDefaultUsers(); await renderTable(); })();
+  </script>
+</body>
+</html>

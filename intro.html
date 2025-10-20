@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Susan Shop</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    html, body { height: 100%; }
+    body { margin:0; background:#0b1220; color:#fff; overflow:hidden; }
+
+    .intro-wrap{
+      position: relative; inset:0;
+      width:100%; height:100%;
+      display:grid; place-items:center;
+      isolation:isolate;
+    }
+    .intro-bg{
+      position:absolute; inset:0; z-index:-2;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(255,255,255,.08), transparent),
+        linear-gradient(135deg,#0ea5e9 0%, #6366f1 60%, #22c55e 100%);
+    }
+    .intro-img{
+      position:absolute; inset:0; z-index:-1;
+      background-position:center; background-size:cover; background-repeat:no-repeat;
+      opacity:.2; transform: scale(1.05);
+    }
+    .intro-content{
+      text-align:center; padding:20px; max-width: 900px;
+    }
+    .logo{
+      display:inline-grid; place-items:center;
+      width:88px; height:88px; border-radius:22px;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25);
+      box-shadow: 0 10px 40px rgba(0,0,0,.35);
+      margin-bottom:12px;
+      font-weight:800; font-size:20px; letter-spacing:.2px;
+      backdrop-filter: blur(2px);
+    }
+    h1{ font-weight: 900; font-size: clamp(26px, 6vw, 56px); margin: 8px 0 6px; }
+    .lead{ font-size: clamp(15px, 2.2vw, 18px); opacity: .95; }
+    .btns{ margin-top: 14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .hint{ margin-top: 10px; font-size:13px; opacity:.8 }
+
+    /* footer mini */
+    .mini-footer{
+      position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+      font-size:12px; opacity:.7
+    }
+  </style>
+</head>
+<body>
+
+  <div class="intro-wrap">
+    <div class="intro-bg"></div>
+    <!-- Đổi ảnh nền ở đây, fallback sẽ tự dùng gradient nếu ảnh lỗi -->
+    <div id="bgImg" class="intro-img"></div>
+
+    <div class="intro-content">
+      <div class="logo">Susan</div>
+      <h1>Chào mừng đến với Susan Shop</h1>
+      <p class="lead">Hàng công nghệ chính hãng – chọn đúng máy, đúng nhu cầu, đúng ngân sách.</p>
+
+      <div class="btns">
+        <a class="btn btn-light btn-lg" href="index.html"><i class="bi bi-shop"></i> Vào cửa hàng</a>
+        <a class="btn btn-outline-light btn-lg" href="product.html"><i class="bi bi-grid"></i> Xem sản phẩm</a>
+      </div>
+
+      <div class="hint">Nhấn logo trên thanh điều hướng bất kỳ lúc nào để về Intro.</div>
+    </div>
+
+    <div class="mini-footer">© Susan Shop — Tận tâm & minh bạch</div>
+  </div>
+
+  <script>
+    // Ảnh nền: đổi đường dẫn tại đây nếu bạn có ảnh intro riêng
+    (function setBg(){
+      const el = document.getElementById('bgImg');
+      const src = 'images/about-hero-1.jpg'; // thay ảnh nền intro của bạn
+      const img = new Image();
+      img.onload = () => { el.style.backgroundImage = `url('${src}')`; el.style.opacity = '.28'; };
+      img.onerror = () => { /* fallback = gradient mặc định */ };
+      img.src = src;
+    })();
+
+    // (Tuỳ chọn) Tự chuyển vào cửa hàng sau N giây (mặc định tắt)
+    // Bật lên bằng cách đổi autoGo = true; và chỉnh delayMs nếu muốn
+    (function autoRedirect(){
+      const autoGo = false;    // <-- đổi thành true nếu muốn tự vào shop
+      const delayMs = 3000;    // 3 giây
+      if (!autoGo) return;
+      setTimeout(()=>{ location.href = 'index.html'; }, delayMs);
+    })();
+  </script>
+</body>
+</html>
